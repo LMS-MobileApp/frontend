@@ -1,36 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from "react-native";
-import { Dropdown } from "react-native-element-dropdown";
+import { Picker } from "@react-native-picker/picker";
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../Common/StackNavigator";
 import { getSubmittedAssignments } from "../../../utils/assignmentApi";
 
-type AddAssignmentNavigationProp = StackNavigationProp<RootStackParamList, "AddAssignment">;
-type AllAssignmentsNavigationProp = StackNavigationProp<RootStackParamList, "AllAssignments">;
-type EditAssignmentNavigationProp = StackNavigationProp<RootStackParamList, "EditAssignment">; // Added
-type SettingScreenNavigationProp = StackNavigationProp<RootStackParamList, "Setting">;
+type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function AdminDashboard() {
-  const navigationAddAssignment = useNavigation<AddAssignmentNavigationProp>();
-  const navigationAllAssignments = useNavigation<AllAssignmentsNavigationProp>();
-  const navigationEditAssignment = useNavigation<EditAssignmentNavigationProp>(); // Added
-  const navigationSetting = useNavigation<SettingScreenNavigationProp>();
-
-  const [course, setCourse] = useState(null);
-  const [batch, setBatch] = useState(null);
+  const navigation = useNavigation<NavigationProp>();
+  const [course, setCourse] = useState<string | null>(null);
+  const [batch, setBatch] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const courses = [
-    { label: "Computer Science", value: "Computer Science" },
-    { label: "Business Management", value: "Business Management" },
+    { label: "Select a course", value: "" },
+    { label: "BA IT degree", value: "BA IT degree" },
+    { label: "Social statistics", value: "Social statistics" },
+    { label: "Business statistics", value: "Business statistics" },
   ];
 
   const batches = [
-    { label: "2023", value: "2023" },
-    { label: "2024", value: "2024" },
+    { label: "Select a batch", value: "" },
+    { label: "2025", value: "2025" },
+    { label: "2026", value: "2026" },
+    { label: "2027", value: "2027" },
   ];
 
   useEffect(() => {
@@ -39,16 +36,25 @@ export default function AdminDashboard() {
 
   const searchSubmissions = async () => {
     try {
-      const filters = {};
+      const filters: { course?: string; batch?: string } = {};
       if (course) filters.course = course;
       if (batch) filters.batch = batch;
       const data = await getSubmittedAssignments(filters);
       setSubmissions(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
-      console.error(error.message);
+      console.error("Error fetching submissions:", error);
       setSubmissions([]);
     }
   };
+
+  const renderSubmissionItem = ({ item }: { item: { _id: string; title: string; submissions: any[] } }) => (
+    <View style={styles.studentItem}>
+      <Text style={styles.studentName}>{item.title}</Text>
+      <Text style={styles.status}>
+        {item.submissions.length} submission{item.submissions.length !== 1 ? "s" : ""}
+      </Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -62,68 +68,52 @@ export default function AdminDashboard() {
             <FontAwesome name="times" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.sidebarTitle}>Menu</Text>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText} onPress={() => navigationAddAssignment.navigate("AddAssignment")}>
-              Add Assignment
-            </Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("AddAssignment")}>
+            <Text style={styles.menuText}>Add Assignment</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText} onPress={() => navigationAllAssignments.navigate("AllAssignments")}>
-              All Assignments
-            </Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("AllAssignments")}>
+            <Text style={styles.menuText}>All Assignments</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText} onPress={() => navigationEditAssignment.navigate("EditAssignment")}>
-              Edit Assignment
-            </Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("EditAssignment")}>
+            <Text style={styles.menuText}>Edit Assignment</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuText} onPress={() => navigationSetting.navigate("Setting")}>
-              Settings
-            </Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("SubmittedAssignment")}>
+            <Text style={styles.menuText}>Submitted Assignment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("Setting")}>
+            <Text style={styles.menuText}>Settings</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <Text style={styles.greeting}>Hello, Klera Ogasthine</Text>
 
-      <View style={styles.dropdownContainer}>
-        <Dropdown
-          data={courses}
-          labelField="label"
-          valueField="value"
-          placeholder="Course"
-          value={course}
-          search
-          searchPlaceholder="Search Course..."
-          onChange={(item) => setCourse(item.value)}
-          style={styles.dropdown}
-        />
-        <Dropdown
-          data={batches}
-          labelField="label"
-          valueField="value"
-          placeholder="Batch"
-          value={batch}
-          search
-          searchPlaceholder="Search Batch..."
-          onChange={(item) => setBatch(item.value)}
-          style={styles.dropdown}
-        />
+      <View style={styles.pickerContainer}>
+        <Picker
+          style={styles.picker}
+          selectedValue={course}
+          onValueChange={(itemValue) => setCourse(itemValue || null)}
+        >
+          {courses.map((option) => (
+            <Picker.Item key={option.value} label={option.label} value={option.value} />
+          ))}
+        </Picker>
+        <Picker
+          style={styles.picker}
+          selectedValue={batch}
+          onValueChange={(itemValue) => setBatch(itemValue || null)}
+        >
+          {batches.map((option) => (
+            <Picker.Item key={option.value} label={option.label} value={option.value} />
+          ))}
+        </Picker>
       </View>
 
       {submissions.length > 0 ? (
         <FlatList
           data={submissions}
           keyExtractor={(item) => item._id}
-          renderItem={({ item }) => (
-            <View style={styles.studentItem}>
-              <Text style={styles.studentName}>{item.title}</Text>
-              <Text style={styles.status}>
-                {item.submissions.length} submission{item.submissions.length !== 1 ? "s" : ""}
-              </Text>
-            </View>
-          )}
+          renderItem={renderSubmissionItem}
         />
       ) : (
         course &&
@@ -183,13 +173,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
-  dropdownContainer: {
+  pickerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 20,
     marginTop: 10,
   },
-  dropdown: {
+  picker: {
     width: "48%",
     height: 50,
     backgroundColor: "#fff",

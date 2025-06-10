@@ -26,17 +26,15 @@ export default function Registration() {
   const [loading, setLoading] = useState(false);
 
   const courseOptions = [
-    { label: "Computer Science", value: "Computer Science" },
-    { label: "Electrical Engineering", value: "Electrical Engineering" },
-    { label: "Mechanical Engineering", value: "Mechanical Engineering" },
-    { label: "Civil Engineering", value: "Civil Engineering" },
+     { label: "BA IT degree", value: "BA IT degree" },
+    { label: "Social statistics", value: "Social statistics" },
+       { label: "Bussiness statistics", value: "Bussiness statistics" },
   ];
 
   const batchOptions = [
-    { label: "2023", value: "2023" },
-    { label: "2024", value: "2024" },
-    { label: "2025", value: "2025" },
+   { label: "2025", value: "2025" },
     { label: "2026", value: "2026" },
+    { label: "2027", value: "2027" },
   ];
 
   const handleRegister = async () => {

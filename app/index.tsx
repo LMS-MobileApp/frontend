@@ -15,6 +15,8 @@ import AdminDashboard from "@/components/tab/Lecture/AdminDashboard";
 import AddAssignment from "@/components/tab/Lecture/AddAssignment";
 import AllAssignments from "@/components/tab/Lecture/AllAssignments";
 import EditAssignment from "@/components/tab/Lecture/EditAssignment";
+import SubmittedAssignment from "@/components/tab/Lecture/ SubmitedAssignment"
+
 
 const Stack = createStackNavigator();
 
@@ -36,6 +38,7 @@ export default function HomeScreen() {
         <Stack.Screen name="AddAssignment" component={AddAssignment} options={{ headerShown: false }} />
         <Stack.Screen name="AllAssignments" component={AllAssignments} options={{ headerShown: false }} />
         <Stack.Screen name="EditAssignment" component={EditAssignment} options={{ headerShown: false }} />
+             <Stack.Screen name="SubmittedAssignment" component={SubmittedAssignment} options={{ headerShown: false }} />
       </Stack.Navigator>
       <Toast />
     </SafeAreaProvider>

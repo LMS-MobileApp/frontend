@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform } from "react-native";
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform, Picker } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { FontAwesome } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
-import { createAssignment } from "../../../utils/assignmentApi"; // Import from utils/auth.js
+import { createAssignment } from "../../../utils/assignmentApi";
 
 export default function AddAssignment() {
   const [formData, setFormData] = useState({
@@ -23,14 +23,12 @@ export default function AddAssignment() {
   const pickFile = async () => {
     try {
       if (Platform.OS === "web") {
-        // Web-specific file picker
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "application/pdf";
         input.onchange = (e) => {
           const file = e.target.files[0];
           if (file) {
-            console.log("Web file selected:", file.name, file.type, file.size);
             setFormData({ ...formData, selectedFile: { assets: [{ uri: file, name: file.name, type: file.type }] } });
           } else {
             Alert.alert("Error", "No file selected");
@@ -38,9 +36,7 @@ export default function AddAssignment() {
         };
         input.click();
       } else {
-        // Native (Android/iOS) file picker
         const result = await DocumentPicker.getDocumentAsync({ type: "application/pdf" });
-        console.log("DocumentPicker result:", JSON.stringify(result, null, 2));
         if (!result.canceled && result.assets && result.assets.length > 0) {
           setFormData({ ...formData, selectedFile: result });
         } else {
@@ -78,24 +74,17 @@ export default function AddAssignment() {
     data.append("title", formData.title);
     data.append("course", formData.course);
     data.append("subject", formData.subject);
-    data.append("dueDate", formData.dueDate.toISOString().split("T")[0]); // YYYY-MM-DD
-    data.append("dueTime", formData.dueTime.toTimeString().split(" ")[0].slice(0, 5)); // HH:MM
+    data.append("dueDate", formData.dueDate.toISOString().split("T")[0]);
+    data.append("dueTime", formData.dueTime.toTimeString().split(" ")[0].slice(0, 5));
     data.append("priority", formData.priority);
 
     if (formData.selectedFile && formData.selectedFile.assets) {
       const file = formData.selectedFile.assets[0];
-      console.log("Appending file to FormData:", file.name, file.type);
       data.append("pdf", Platform.OS === "web" ? file.uri : { uri: file.uri, name: file.name, type: file.type });
     } else {
-      console.error("No valid file in selectedFile");
       Alert.alert("Error", "No valid PDF file selected");
       setLoading(false);
       return;
-    }
-
-    console.log("FormData contents:");
-    for (let [key, value] of data.entries()) {
-      console.log(`${key}:`, value);
     }
 
     try {
@@ -162,12 +151,17 @@ export default function AddAssignment() {
         />
       )}
 
-      <TextInput
+      <Picker
         style={styles.input}
-        placeholder="Course"
-        value={formData.course}
-        onChangeText={(text) => setFormData({ ...formData, course: text })}
-      />
+        selectedValue={formData.course}
+        onValueChange={(itemValue) => setFormData({ ...formData, course: itemValue })}
+      >
+        <Picker.Item label="Select a course" value="" />
+        <Picker.Item label="BA IT degree" value="BA IT degree" />
+        <Picker.Item label="Social statistics" value="Social statistics" />
+        <Picker.Item label="Bussiness statistics" value="Bussiness statistics" />
+      </Picker>
+
       <TextInput
         style={styles.input}
         placeholder="Subject"
