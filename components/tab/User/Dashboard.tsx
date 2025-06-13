@@ -9,8 +9,9 @@ import {
   Modal,
   FlatList,
   Alert,
+  Linking,
 } from "react-native";
-import { BarChart } from "react-native-chart-kit";
+import { LineChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
 import axios from "axios";
@@ -19,9 +20,9 @@ import io from "socket.io-client";
 import * as DocumentPicker from "expo-document-picker";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { RootStackParamList } from "../Common/StackNavigator"; // Adjust path as needed
+import { RootStackParamList } from "../Common/StackNavigator";
 import { Picker } from "@react-native-picker/picker";
-import ProgressBar from 'react-native-progress/Bar';
+import ProgressBar from "react-native-progress/Bar";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -83,6 +84,9 @@ const Dashboard = () => {
   const [progress, setProgress] = useState(0);
   const [totalAssignments, setTotalAssignments] = useState(0);
   const [completedAssignments, setCompletedAssignments] = useState(0);
+  const [monthlyStats, setMonthlyStats] = useState({ labels: [], datasets: [{ data: [] }] });
+  const [downloadModal, setDownloadModal] = useState(false); // New state for download modal
+  const [pdfAssignments, setPdfAssignments] = useState([]); // New state for PDF assignments
   const socket = io("http://localhost:5001");
 
   useEffect(() => {
@@ -120,13 +124,22 @@ const Dashboard = () => {
           setAssignments(assignmentsResponse.data || []);
           setAssignmentTitle(assignmentsResponse.data.length > 0 ? assignmentsResponse.data[0].title : "");
 
-          // Fetch progress
           const progressResponse = await axios.get("http://localhost:5001/api/assignments/progress", {
             headers: { Authorization: `Bearer ${token}` },
           });
           setTotalAssignments(progressResponse.data.total);
           setCompletedAssignments(progressResponse.data.completed);
           setProgress(progressResponse.data.progress / 100);
+
+          const statsResponse = await axios.get("http://localhost:5001/api/assignments/stats/monthly-completed", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setMonthlyStats(statsResponse.data);
+
+          const pdfResponse = await axios.get("http://localhost:5001/api/assignments/pdfs", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setPdfAssignments(pdfResponse.data);
 
           setLoadingAssignments(false);
         }
@@ -140,6 +153,8 @@ const Dashboard = () => {
         setProgress(0);
         setTotalAssignments(0);
         setCompletedAssignments(0);
+        setMonthlyStats({ labels: [], datasets: [{ data: [] }] });
+        setPdfAssignments([]);
       }
 
       socket.on("message", (message) => {
@@ -154,7 +169,6 @@ const Dashboard = () => {
   }, [selectedGroupChat]);
 
   useEffect(() => {
-    // Load notes when notesModal opens or assignmentTitle changes
     if (notesModal && assignmentTitle) {
       fetchNotes();
     }
@@ -324,7 +338,7 @@ const Dashboard = () => {
       if (result.type === "success") {
         console.log("Picked file:", result);
         setSubmissionFile(result);
-        setSubmissionLink(""); // Clear link when file is selected
+        setSubmissionLink("");
       } else {
         Alert.alert("Error", "No file selected or cancelled by user");
       }
@@ -392,13 +406,17 @@ const Dashboard = () => {
       setSubmissionLink("");
       setSubmissionFile(null);
 
-      // Refresh progress after submission
       const progressResponse = await axios.get("http://localhost:5001/api/assignments/progress", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTotalAssignments(progressResponse.data.total);
       setCompletedAssignments(progressResponse.data.completed);
       setProgress(progressResponse.data.progress / 100);
+
+      const statsResponse = await axios.get("http://localhost:5001/api/assignments/stats/monthly-completed", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMonthlyStats(statsResponse.data);
     } catch (error) {
       console.error("Submit assignment error:", error.response?.data || error);
       Alert.alert("Error", error.response?.data?.message || "Failed to submit assignment");
@@ -479,6 +497,15 @@ const Dashboard = () => {
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleDownload = async (url) => {
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert("Error", "Unable to open the download link");
+    }
+  };
+
   return (
     <View style={styles.container}>
       {menuOpen && (
@@ -531,6 +558,15 @@ const Dashboard = () => {
             }}
           >
             <Text style={styles.menuText}>Notes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => {
+              setMenuOpen(false);
+              setDownloadModal(true);
+            }}
+          >
+            <Text style={styles.menuText}>Download Assignment</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuButton}
@@ -785,7 +821,7 @@ const Dashboard = () => {
               value={submissionLink}
               onChangeText={(text) => {
                 setSubmissionLink(text);
-                setSubmissionFile(null); // Clear file when link is entered
+                setSubmissionFile(null);
               }}
             />
             <TouchableOpacity style={styles.uploadButton} onPress={pickSubmissionFile}>
@@ -925,6 +961,43 @@ const Dashboard = () => {
         </View>
       </Modal>
 
+      <Modal visible={downloadModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.chatContainer}>
+            <View style={styles.chatHeader}>
+              <Text style={styles.chatTitle}>Download Assignments</Text>
+              <TouchableOpacity onPress={() => setDownloadModal(false)}>
+                <FontAwesome5 name="times" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            {loadingAssignments ? (
+              <Text style={styles.loadingText}>Loading assignments...</Text>
+            ) : pdfAssignments.length === 0 ? (
+              <Text style={styles.noDataText}>No PDF assignments available</Text>
+            ) : (
+              <FlatList
+                data={pdfAssignments}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => (
+                  <View style={styles.assignmentItem}>
+                    <Text style={styles.assignmentTitleText}>{item.title}</Text>
+                    <Text style={styles.assignmentDate}>
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.downloadButton}
+                      onPress={() => handleDownload(item.pdfUrl)}
+                    >
+                      <Text style={styles.buttonText}>Download PDF</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View style={styles.profileContainer}>
           <Text style={styles.greeting}>Hello, {profile?.name || "User"}</Text>
@@ -958,11 +1031,8 @@ const Dashboard = () => {
 
         <Text style={styles.chartTitle}>Monthly Completed Assignments</Text>
         <View style={styles.chartContainer}>
-          <BarChart
-            data={{
-              labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-              datasets: [{ data: [5, 10, 15, 12, 8, 20, 18, 15, 10, 12, 9, 14], colors: [(opacity = 1) => `rgba(34, 128, 176, ${opacity})`] }],
-            }}
+          <LineChart
+            data={monthlyStats}
             width={screenWidth * 0.9}
             height={220}
             yAxisLabel=""
@@ -972,10 +1042,20 @@ const Dashboard = () => {
               backgroundGradientTo: "#fff",
               color: (opacity = 1) => `rgba(34, 128, 176, ${opacity})`,
               labelColor: () => "#000",
-              barPercentage: 0.5,
+              style: {
+                borderRadius: 16,
+              },
+              propsForDots: {
+                r: "6",
+                strokeWidth: "2",
+                stroke: "#34a0a4",
+              },
             }}
-            fromZero
-            withInnerLines={false}
+            bezier
+            style={{
+              marginVertical: 8,
+              borderRadius: 16,
+            }}
           />
         </View>
       </ScrollView>
@@ -1121,7 +1201,23 @@ const styles = StyleSheet.create({
   progressText: { fontSize: 16, fontWeight: "bold", color: "#34a0a4" },
   progressTotal: { fontSize: 16, fontWeight: "bold", color: "#34a0a4" },
   progressBar: { marginVertical: 10 },
-  progressDetail: { fontSize: 14, color: "#555" },
+  assignmentItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  assignmentTitleText: { fontSize: 16, fontWeight: "bold", flex: 1 },
+  assignmentDate: { fontSize: 12, color: "#555", marginLeft: 10 },
+  downloadButton: {
+    backgroundColor: "#34a0a4",
+    padding: 8,
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  noDataText: { textAlign: "center", padding: 10, color: "#555" },
 });
 
 export default Dashboard;
