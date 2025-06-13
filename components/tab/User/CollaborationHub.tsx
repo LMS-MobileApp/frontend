@@ -8,41 +8,81 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-
 import { RootStackParamList } from "../Common/StackNavigator";
-import { createGroupChat, joinGroupChat } from "../../../utils/groupChatApi";
+import { createGroupChat, fetchGroupChats, fetchAssignments } from "../../../utils/groupChatApi";
 
 type CollaborationHubNavigationProp = StackNavigationProp<RootStackParamList, "CollaborationHub">;
 type GroupChatScreenNavigationProp = StackNavigationProp<RootStackParamList, "GroupChatScreen">;
 
 export default function CollaborationHub() {
   const navigation = useNavigation<CollaborationHubNavigationProp & GroupChatScreenNavigationProp>();
-  const [groupChats, setGroupChats] = useState([]); // Mocked for now
+  const [groupChats, setGroupChats] = useState([]);
   const [groupName, setGroupName] = useState("");
-  const [assignmentId, setAssignmentId] = useState("67f02df8020c2886cd44c047"); // Hardcoded for demo
+  const [assignmentTitle, setAssignmentTitle] = useState("");
+  const [assignments, setAssignments] = useState([]);
 
   useEffect(() => {
-    // Fetch group chats for assignment (you might need a GET /api/group-chats endpoint)
-    setGroupChats([
-      { _id: "67f02fa4d9ccbcd395e73ef6", name: "HDSE Group", members: ["user1"] },
-    ]); // Mock data
+    const loadData = async () => {
+      try {
+        console.log("Fetching assignments...");
+        const assignmentsData = await fetchAssignments();
+        console.log("Fetched assignments:", assignmentsData);
+        setAssignments(assignmentsData);
+        if (assignmentsData.length > 0) {
+          setAssignmentTitle(assignmentsData[0].title); // Default to first assignment title
+        } else {
+          console.log("No assignments found");
+          setAssignmentTitle(""); // Clear if no data
+        }
+      } catch (error) {
+        console.log("Error fetching assignments:", error.message);
+        Alert.alert("Error", "Failed to load assignments: " + error.message);
+      }
+    };
+    loadData();
   }, []);
+
+  useEffect(() => {
+    if (assignmentTitle) {
+      const loadGroupChats = async () => {
+        try {
+          console.log("Fetching group chats for title:", assignmentTitle);
+          const groupChatsData = await fetchGroupChats(assignmentTitle);
+          console.log("Fetched group chats:", groupChatsData);
+          setGroupChats(groupChatsData);
+        } catch (error) {
+          console.log("Error fetching group chats:", error.message);
+          Alert.alert("Error", "Failed to load group chats: " + error.message);
+        }
+      };
+      loadGroupChats();
+    } else {
+      setGroupChats([]);
+    }
+  }, [assignmentTitle]);
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       Alert.alert("Error", "Please enter a group name");
       return;
     }
+    if (!assignmentTitle) {
+      Alert.alert("Error", "Please select an assignment");
+      return;
+    }
     try {
-      const newGroup = await createGroupChat(assignmentId, groupName);
+      console.log("Creating group with title:", assignmentTitle, "name:", groupName);
+      const newGroup = await createGroupChat(assignmentTitle, groupName);
+      console.log("Group created:", newGroup);
       setGroupChats((prev) => [...prev, newGroup]);
       setGroupName("");
       Alert.alert("Success", "Group chat created!");
     } catch (error) {
-      Alert.alert("Error", error.message);
+      console.log("Error creating group:", error.message);
+      Alert.alert("Error", "Failed to create group chat: " + error.message);
     }
   };
 
@@ -54,7 +94,7 @@ export default function CollaborationHub() {
       );
       Alert.alert("Success", "Joined group chat!");
     } catch (error) {
-      Alert.alert("Error", error.message);
+      Alert.alert("Error", error.message || "Failed to join group chat");
     }
   };
 
@@ -65,10 +105,31 @@ export default function CollaborationHub() {
       <View style={styles.createContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Group Name (e.g., HDSE Group)"
+          placeholder="Search group chats..."
+          value=""
+          editable={false}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Group Name (e.g., xxx Group)"
           value={groupName}
           onChangeText={setGroupName}
         />
+        <Picker
+          selectedValue={assignmentTitle}
+          onValueChange={(itemValue) => setAssignmentTitle(itemValue)}
+          style={styles.picker}
+          enabled={true}
+        >
+          <Picker.Item label="Select an assignment" value="" />
+          {assignments.map((assignment) => (
+            <Picker.Item
+              key={assignment._id}
+              label={assignment.title || "Untitled"}
+              value={assignment.title || ""}
+            />
+          ))}
+        </Picker>
         <TouchableOpacity style={styles.createButton} onPress={handleCreateGroup}>
           <Text style={styles.createButtonText}>Create Group</Text>
         </TouchableOpacity>
@@ -115,17 +176,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   createContainer: {
-    flexDirection: "row",
     marginBottom: 20,
   },
+  picker: {
+    backgroundColor: "#fff",
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginBottom: 10,
+    height: 50,
+    width: "100%",
+  },
   input: {
-    flex: 1,
     backgroundColor: "#fff",
     padding: 10,
     borderRadius: 5,
     borderWidth: 1,
     borderColor: "#ccc",
-    marginRight: 10,
+    marginBottom: 10,
+    height: 40,
   },
   createButton: {
     backgroundColor: "#34a0a4",
@@ -136,6 +205,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: "#fff",
     fontWeight: "bold",
+    textAlign: "center",
   },
   groupItem: {
     backgroundColor: "#fff",

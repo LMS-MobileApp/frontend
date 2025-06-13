@@ -10,8 +10,7 @@ export default function GroupChatScreen() {
   const { groupChatId } = route.params;
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
-  const socket = io("http://localhost:5001"); // Adjust if deployed
-
+  const socket = io("http://localhost:5001"); 
   useEffect(() => {
     // Fetch initial messages
     const fetchMessages = async () => {

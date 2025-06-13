@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform, Picker } from "react-native";
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import * as DocumentPicker from "expo-document-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { FontAwesome } from "@expo/vector-icons";
@@ -12,6 +13,7 @@ export default function AddAssignment() {
     dueTime: new Date(),
     title: "",
     course: "",
+    batch: "",
     subject: "",
     priority: "medium",
     selectedFile: null,
@@ -29,7 +31,7 @@ export default function AddAssignment() {
         input.onchange = (e) => {
           const file = e.target.files[0];
           if (file) {
-            setFormData({ ...formData, selectedFile: { assets: [{ uri: file, name: file.name, type: file.type }] } });
+            setFormData({ ...formData, selectedFile: { assets: [{ uri: URL.createObjectURL(file), name: file.name, type: file.type, file }] } });
           } else {
             Alert.alert("Error", "No file selected");
           }
@@ -63,28 +65,40 @@ export default function AddAssignment() {
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.title || !formData.course || !formData.subject || !formData.selectedFile) {
-      Alert.alert("Error", "All fields and a PDF file are required");
+  const handleSubmit = async () => {
+    const { title, course, batch, subject, dueDate, dueTime, selectedFile } = formData;
+    if (!title || !course || !batch || !subject || !dueDate || !dueTime || !selectedFile?.assets?.[0]) {
+      Alert.alert("Error", "Please fill all fields and select a PDF file");
       return;
     }
 
     setLoading(true);
     const data = new FormData();
-    data.append("title", formData.title);
-    data.append("course", formData.course);
-    data.append("subject", formData.subject);
-    data.append("dueDate", formData.dueDate.toISOString().split("T")[0]);
-    data.append("dueTime", formData.dueTime.toTimeString().split(" ")[0].slice(0, 5));
+    data.append("title", title);
+    data.append("course", course);
+    data.append("batch", batch);
+    data.append("subject", subject);
+    data.append("dueDate", dueDate.toISOString().split("T")[0]);
+    data.append("dueTime", dueTime.toTimeString().split(" ")[0].slice(0, 5));
     data.append("priority", formData.priority);
 
-    if (formData.selectedFile && formData.selectedFile.assets) {
-      const file = formData.selectedFile.assets[0];
-      data.append("pdf", Platform.OS === "web" ? file.uri : { uri: file.uri, name: file.name, type: file.type });
+    if (selectedFile && selectedFile.assets) {
+      const file = selectedFile.assets[0];
+      if (Platform.OS === "web") {
+        data.append("pdf", file.file, file.name);
+      } else {
+        data.append("pdf", { uri: file.uri, name: file.name, type: file.type });
+      }
     } else {
       Alert.alert("Error", "No valid PDF file selected");
       setLoading(false);
       return;
+    }
+
+    // Log FormData entries for debugging
+    console.log("FormData entries:");
+    for (let [key, value] of data.entries()) {
+      console.log(`${key}: ${value instanceof File ? value.name : value}`);
     }
 
     try {
@@ -113,8 +127,7 @@ export default function AddAssignment() {
 
       {formData.selectedFile && formData.selectedFile.assets && (
         <Text style={styles.fileName}>
-          <FontAwesome name="file-pdf-o" size={16} color="red" />{" "}
-          {formData.selectedFile.assets[0].name}
+          <FontAwesome name="file-pdf-o" size={16} color="red" /> {formData.selectedFile.assets[0].name}
         </Text>
       )}
 
@@ -159,7 +172,18 @@ export default function AddAssignment() {
         <Picker.Item label="Select a course" value="" />
         <Picker.Item label="BA IT degree" value="BA IT degree" />
         <Picker.Item label="Social statistics" value="Social statistics" />
-        <Picker.Item label="Bussiness statistics" value="Bussiness statistics" />
+        <Picker.Item label="Business statistics" value="Business statistics" />
+      </Picker>
+
+      <Picker
+        style={styles.input}
+        selectedValue={formData.batch}
+        onValueChange={(itemValue) => setFormData({ ...formData, batch: itemValue })}
+      >
+        <Picker.Item label="Select a batch" value="" />
+        <Picker.Item label="2025" value="2025" />
+        <Picker.Item label="2026" value="2026" />
+        <Picker.Item label="2027" value="2027" />
       </Picker>
 
       <TextInput
@@ -172,12 +196,15 @@ export default function AddAssignment() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.saveButton, loading && styles.buttonDisabled]}
-          onPress={handleSave}
+          onPress={handleSubmit}
           disabled={loading}
         >
           <Text style={styles.saveButtonText}>{loading ? "Saving..." : "Save"}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.cancelButton}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => setFormData({ dueDate: new Date(), dueTime: new Date(), title: "", course: "", batch: "", subject: "", priority: "medium", selectedFile: null })}
+        >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -196,7 +223,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 30,
-    marginTop: 20,
+    marginTop: 10,
   },
   addButton: {
     flexDirection: "row",
