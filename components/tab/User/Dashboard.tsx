@@ -138,6 +138,28 @@ const Dashboard = () => {
     initialize();
   }, [selectedGroupChat]);
 
+  useEffect(() => {
+    // Load notes when notesModal opens or assignmentTitle changes
+    if (notesModal && assignmentTitle) {
+      fetchNotes();
+    }
+  }, [notesModal, assignmentTitle]);
+
+  const fetchNotes = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await axios.get("http://localhost:5001/api/notes", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { assignmentTitle },
+      });
+      setNotes(response.data || []);
+    } catch (error) {
+      console.error("Fetch notes error:", error);
+      Alert.alert("Error", "Failed to load notes");
+      setNotes([]);
+    }
+  };
+
   const sendMessage = async () => {
     if (!messageInput.trim()) return;
     const userMessage = { sender: "user", text: messageInput, timestamp: new Date() };
