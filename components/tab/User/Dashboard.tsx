@@ -21,6 +21,7 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../Common/StackNavigator"; // Adjust path as needed
 import { Picker } from "@react-native-picker/picker";
+import ProgressBar from 'react-native-progress/Bar';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -79,6 +80,9 @@ const Dashboard = () => {
   const [editNoteContent, setEditNoteContent] = useState("");
   const [editNoteType, setEditNoteType] = useState("note");
   const [editNoteCompleted, setEditNoteCompleted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [totalAssignments, setTotalAssignments] = useState(0);
+  const [completedAssignments, setCompletedAssignments] = useState(0);
   const socket = io("http://localhost:5001");
 
   useEffect(() => {
@@ -116,6 +120,14 @@ const Dashboard = () => {
           setAssignments(assignmentsResponse.data || []);
           setAssignmentTitle(assignmentsResponse.data.length > 0 ? assignmentsResponse.data[0].title : "");
 
+          // Fetch progress
+          const progressResponse = await axios.get("http://localhost:5001/api/assignments/progress", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setTotalAssignments(progressResponse.data.total);
+          setCompletedAssignments(progressResponse.data.completed);
+          setProgress(progressResponse.data.progress / 100);
+
           setLoadingAssignments(false);
         }
       } catch (error) {
@@ -125,6 +137,9 @@ const Dashboard = () => {
         setAssignments([]);
         setGroupChats([]);
         setAllGroupChats([]);
+        setProgress(0);
+        setTotalAssignments(0);
+        setCompletedAssignments(0);
       }
 
       socket.on("message", (message) => {
@@ -376,6 +391,14 @@ const Dashboard = () => {
       setAssignmentTitle(assignments.length > 0 ? assignments[0].title : "");
       setSubmissionLink("");
       setSubmissionFile(null);
+
+      // Refresh progress after submission
+      const progressResponse = await axios.get("http://localhost:5001/api/assignments/progress", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTotalAssignments(progressResponse.data.total);
+      setCompletedAssignments(progressResponse.data.completed);
+      setProgress(progressResponse.data.progress / 100);
     } catch (error) {
       console.error("Submit assignment error:", error.response?.data || error);
       Alert.alert("Error", error.response?.data?.message || "Failed to submit assignment");
@@ -916,6 +939,21 @@ const Dashboard = () => {
           <TouchableOpacity style={styles.actionButton} onPress={() => setNotesModal(true)}>
             <Text style={styles.buttonTextBlack}>View Notes</Text>
           </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressText}>Completed: {completedAssignments}</Text>
+              <Text style={styles.progressTotal}>/ {totalAssignments}</Text>
+            </View>
+            <ProgressBar
+              progress={progress}
+              width={screenWidth * 0.9}
+              height={20}
+              color="#34a0a4"
+              unfilledColor="#e0e0e0"
+              borderWidth={0}
+              style={styles.progressBar}
+            />
+          </View>
         </View>
 
         <Text style={styles.chartTitle}>Monthly Completed Assignments</Text>
@@ -1078,6 +1116,12 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   fileInfo: { fontSize: 14, color: "#555", marginVertical: 5, textAlign: "center" },
+  progressContainer: { width: "90%", marginTop: 20, alignItems: "center" },
+  progressHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "90%" },
+  progressText: { fontSize: 16, fontWeight: "bold", color: "#34a0a4" },
+  progressTotal: { fontSize: 16, fontWeight: "bold", color: "#34a0a4" },
+  progressBar: { marginVertical: 10 },
+  progressDetail: { fontSize: 14, color: "#555" },
 });
 
 export default Dashboard;
