@@ -3,15 +3,12 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { FontAwesome } from "@expo/vector-icons";
-import Toast from "react-native-toast-message";
 import { RootStackParamList } from "../Common/StackNavigator";
-import { getAssignments, deleteAssignment } from "../../../utils/assignmentApi";
+import { getAssignments } from "../../../utils/assignmentApi";
 
 // Debug the imports
 console.log("🔍 Checking imports:");
 console.log("getAssignments type:", typeof getAssignments);
-console.log("deleteAssignment type:", typeof deleteAssignment);
-console.log("deleteAssignment function:", deleteAssignment);
 
 type AddAssignmentNavigationProp = StackNavigationProp<RootStackParamList, "AddAssignment">;
 type EditAssignmentNavigationProp = StackNavigationProp<RootStackParamList, "EditAssignment">;
@@ -24,7 +21,6 @@ export default function AllAssignments() {
   const [assignments, setAssignments] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(null); // Track which item is being deleted
 
   const fetchAssignments = async () => {
     setLoading(true);
@@ -57,67 +53,6 @@ export default function AllAssignments() {
   const handleEdit = (id) => {
     console.log("Navigating to EditAssignment with ID:", id);
     navigationEdit.navigate("EditAssignment", { id });
-  };
-
-  const handleDelete = async (id) => {
-    console.log("=== DELETE PROCESS STARTED ===");
-    console.log("Attempting to delete assignment with ID:", id);
-    console.log("Current assignments before delete:", assignments.length);
-    
-    Alert.alert("Confirm Delete", "Are you sure you want to delete this assignment?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          setDeleting(id); // Set loading state for this specific item
-          
-          try {
-            console.log("🚀 About to call deleteAssignment function...");
-            console.log("📋 Function type:", typeof deleteAssignment);
-            console.log("📡 About to make DELETE request for ID:", id);
-            
-            if (typeof deleteAssignment !== 'function') {
-              throw new Error('deleteAssignment is not a function');
-            }
-            
-            const result = await deleteAssignment(id);
-            console.log("✅ Delete API response:", result);
-            
-            // Show success message
-            Toast.show({ 
-              type: "success", 
-              text1: "Assignment Deleted",
-              text2: "The assignment has been successfully removed"
-            });
-            
-            console.log("Refreshing assignments list...");
-            await fetchAssignments(); // Refresh table after deletion
-            console.log("Assignments refreshed");
-            
-          } catch (error) {
-            console.error("=== DELETE ERROR ===");
-            console.error("Delete assignment error:", error);
-            console.error("Error details:", {
-              message: error.message,
-              response: error.response?.data,
-              status: error.response?.status,
-              statusText: error.response?.statusText
-            });
-            
-            // Show detailed error message
-            const errorMessage = error.response?.data?.message || error.message || "Failed to delete assignment";
-            Alert.alert(
-              "Delete Failed", 
-              `Error: ${errorMessage}\n\nPlease check:\n• Internet connection\n• Server is running\n• You have admin privileges`,
-              [{ text: "OK" }]
-            );
-          } finally {
-            setDeleting(null); // Clear loading state
-          }
-        },
-      },
-    ]);
   };
 
   return (
@@ -153,21 +88,10 @@ export default function AllAssignments() {
               <View style={styles.row}>
                 <Text style={styles.assignmentText}>{item.title}</Text>
                 <View style={styles.actions}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => handleEdit(item._id)}
-                    disabled={deleting === item._id}
                   >
                     <FontAwesome name="pencil" size={20} color="green" style={styles.icon} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={() => handleDelete(item._id)}
-                    disabled={deleting === item._id}
-                  >
-                    {deleting === item._id ? (
-                      <Text style={styles.deletingText}>...</Text>
-                    ) : (
-                      <FontAwesome name="trash" size={20} color="red" style={styles.icon} />
-                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -249,7 +173,7 @@ const styles = StyleSheet.create({
   actions: {
     width: "48%",
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "flex-start", // Adjusted to center the single action
     alignItems: "center",
   },
   icon: {
@@ -291,11 +215,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     textAlign: "center",
-  },
-  deletingText: {
-    fontSize: 16,
-    color: "#ff6b6b",
-    fontWeight: "bold",
-    marginHorizontal: 10,
   },
 });

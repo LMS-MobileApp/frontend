@@ -387,4 +387,19 @@ export const getAllAssignmentCalendar = async () => {
   }
 };
 
+
+
+
+export const getUserSubmittedAssignments = async (filters = {}) => {
+  try {
+    console.log("Fetching user submitted assignments with filters:", filters);
+    const response = await api.get("/api/submissions", { params: filters });
+    console.log(`Fetched ${response.data.length} submissions`);
+    return response.data;
+  } catch (error) {
+    console.error("getUserSubmittedAssignments error:", error.response?.data || error.message);
+    throw error.response?.data || { message: "Failed to fetch submissions" };
+  }
+};
+
 // Keep other existing API calls (e.g., getUserAssignmentCalendar) if needed
